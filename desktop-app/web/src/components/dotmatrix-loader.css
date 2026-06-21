@@ -1,0 +1,88 @@
+.dmx-root {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  --dmx-opacity-base: 0.16;
+  --dmx-opacity-mid: 0.32;
+  --dmx-opacity-peak: 1;
+}
+
+.dmx-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+}
+
+.dmx-dot {
+  display: block;
+  border-radius: 999px;
+  background: var(--dmx-dot-fill, currentColor);
+  opacity: calc(0.5 * (var(--dmx-opacity-base) + var(--dmx-opacity-mid)));
+  transform-origin: center;
+  will-change: opacity;
+}
+
+.dmx-root.dmx-dot-shape-square .dmx-dot {
+  border-radius: 0;
+}
+
+.dmx-root.dmx-dot-shape-diamond .dmx-dot {
+  border-radius: 0;
+  transform: rotate(45deg) scale(0.7071067812);
+}
+
+.dmx-muted .dmx-dot {
+  opacity: calc(0.44 * var(--dmx-opacity-mid));
+}
+
+.dmx-dot.dmx-inactive {
+  opacity: 0 !important;
+  animation: none !important;
+  visibility: hidden;
+  pointer-events: none;
+  will-change: auto;
+}
+
+.dmx-square18-dot {
+  animation: dmx-square18-column-wave 1.35s ease-in-out infinite;
+  animation-delay: var(--dmx-delay, 0s);
+}
+
+.dmx-square18-visible-dot {
+  display: block;
+  animation-name: dmx-square18-column-wave;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: opacity, transform;
+}
+
+@keyframes dmx-square18-column-wave {
+  0%,
+  100% {
+    opacity: 0.08;
+    transform: scale(0.72);
+  }
+
+  32% {
+    opacity: 0.94;
+    transform: scale(1);
+  }
+
+  48% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+
+  72% {
+    opacity: 0.22;
+    transform: scale(0.82);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dmx-dot {
+    animation: none !important;
+    transition: none !important;
+  }
+}

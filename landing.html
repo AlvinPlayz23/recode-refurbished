@@ -1,0 +1,1142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>RECODE — a coding agent that lives in your terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  /* -------- Tokens -------- */
+  :root{
+    --ink:#0c0b09;
+    --ink-2:#15130f;
+    --bone:#f3ede0;
+    --bone-2:#e7dfcd;
+    --paper:#efe7d4;
+    --rule:rgba(243,237,224,.18);
+    --rule-strong:rgba(243,237,224,.42);
+    --acid:#d6ff3a;        /* electric lime */
+    --amber:#ff7a1a;       /* burnt amber */
+    --plum:#b693ff;
+    --tomato:#ff5238;
+    --grid: 1px solid var(--rule);
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--ink);color:var(--bone);}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:"Fraunces", ui-serif, Georgia, serif;
+    font-optical-sizing:auto;
+    font-variation-settings:"opsz" 14, "SOFT" 30, "WONK" 0;
+    font-weight:340;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+    background-image:
+      radial-gradient(1200px 700px at 80% -10%, rgba(214,255,58,.07), transparent 60%),
+      radial-gradient(900px 600px at -10% 30%, rgba(255,122,26,.06), transparent 60%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.95 0 0 0 0 0.93 0 0 0 0 0.87 0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+  ::selection{background:var(--acid);color:var(--ink)}
+
+  .mono{font-family:"JetBrains Mono", ui-monospace, monospace; font-weight:500; letter-spacing:.01em}
+  .display{font-family:"Fraunces", serif; font-variation-settings:"opsz" 144, "SOFT" 30, "WONK" 1; letter-spacing:-.04em; line-height:.86}
+  .italic{font-family:"Instrument Serif", serif; font-style:italic; font-weight:400}
+
+  a{color:inherit;text-decoration:none}
+  button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+
+  /* -------- Layout shell -------- */
+  .wrap{max-width:1440px;margin:0 auto;padding:0 28px;position:relative}
+  .rule{height:1px;background:var(--rule);width:100%}
+
+  /* -------- Top ticker -------- */
+  .ticker{
+    position:relative; z-index:50;
+    border-bottom:1px solid var(--rule);
+    background:var(--ink);
+    overflow:hidden;
+  }
+  .ticker .row{
+    display:flex; gap:48px; padding:9px 0;
+    white-space:nowrap; will-change:transform;
+    font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--bone-2); opacity:.85;
+  }
+  .ticker .pip{color:var(--acid)}
+  .ticker-track{display:flex; animation:ticker 60s linear infinite}
+  @keyframes ticker{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
+
+  /* -------- Nav -------- */
+  nav.bar{
+    position:sticky; top:0; z-index:40;
+    backdrop-filter:blur(10px);
+    background:rgba(12,11,9,.72);
+    border-bottom:1px solid var(--rule);
+  }
+  nav .inner{display:grid; grid-template-columns: 1fr auto 1fr; align-items:center; padding:14px 28px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand .mark{
+    width:30px;height:30px;display:grid;place-items:center;
+    background:var(--bone); color:var(--ink);
+    font-family:"JetBrains Mono",monospace; font-weight:700; font-size:13px;
+    border-radius:2px; transform:rotate(-4deg);
+  }
+  .brand .word{font-family:"JetBrains Mono",monospace; font-weight:700; letter-spacing:.22em; font-size:12px}
+  .navlinks{display:flex;gap:28px;justify-content:center}
+  .navlinks a{font-family:"JetBrains Mono",monospace; font-size:12px; letter-spacing:.18em; text-transform:uppercase; opacity:.78; transition:opacity .2s}
+  .navlinks a:hover{opacity:1; color:var(--acid)}
+  .nav-cta{display:flex;justify-content:flex-end;gap:14px}
+  .pill{
+    border:1px solid var(--rule-strong); border-radius:999px;
+    padding:8px 14px; font-family:"JetBrains Mono",monospace; font-size:11px;
+    letter-spacing:.16em; text-transform:uppercase;
+    transition:all .25s;
+  }
+  .pill:hover{background:var(--bone); color:var(--ink); border-color:var(--bone)}
+  .pill.solid{background:var(--acid); color:var(--ink); border-color:var(--acid)}
+  .pill.solid:hover{background:var(--ink); color:var(--acid)}
+
+  /* -------- HERO -------- */
+  .hero{position:relative; padding:64px 0 40px; overflow:hidden}
+  .hero .grid{
+    display:grid;
+    grid-template-columns: 1.05fr .95fr;
+    gap:56px;
+    align-items:end;
+  }
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:10px;
+    font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.22em; text-transform:uppercase;
+    color:var(--bone-2); opacity:.85;
+  }
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--acid);box-shadow:0 0 18px var(--acid)}
+  h1.title{
+    margin-top:18px;
+    font-size: clamp(58px, 11.6vw, 196px);
+    line-height:.84;
+    letter-spacing:-.05em;
+    font-variation-settings:"opsz" 144, "SOFT" 30, "WONK" 1;
+    font-weight:420;
+  }
+  h1.title .row{display:block; overflow:hidden}
+  h1.title .word{display:inline-block; will-change:transform;}
+  h1.title em{
+    font-family:"Instrument Serif", serif; font-style:italic; font-weight:400;
+    color:var(--paper); letter-spacing:-.02em;
+  }
+  h1.title .accent{color:var(--acid)}
+  h1.title .strike{position:relative; color:var(--bone-2)}
+  h1.title .strike::after{
+    content:""; position:absolute; left:0; right:0; top:55%; height:.08em;
+    background:var(--amber); transform:scaleX(0); transform-origin:left;
+    animation:strike 1.4s 1.4s cubic-bezier(.7,0,.3,1) forwards;
+  }
+  @keyframes strike{to{transform:scaleX(1)}}
+
+  .lede{
+    margin-top:22px; max-width:540px;
+    font-size:19px; line-height:1.55; color:var(--bone-2);
+  }
+  .lede b{color:var(--bone); font-weight:500}
+
+  .hero-meta{
+    display:flex; gap:14px 24px; flex-wrap:wrap;
+    margin-top:28px;
+    font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--bone-2);
+  }
+  .hero-meta span:before{content:"›  "; color:var(--acid)}
+
+  .cta-row{display:flex; gap:14px; margin-top:32px; flex-wrap:wrap; align-items:center}
+  .btn{
+    display:inline-flex;align-items:center;gap:12px;
+    padding:14px 20px;
+    background:var(--bone); color:var(--ink);
+    font-family:"JetBrains Mono",monospace; font-weight:700; font-size:12px; letter-spacing:.18em; text-transform:uppercase;
+    border-radius:2px;
+    transition:transform .2s, background .2s, color .2s;
+  }
+  .btn:hover{background:var(--acid); transform:translateY(-2px)}
+  .btn.ghost{background:transparent; color:var(--bone); border:1px solid var(--rule-strong)}
+  .btn.ghost:hover{background:var(--bone); color:var(--ink)}
+  .btn .arr{display:inline-block; transition:transform .2s}
+  .btn:hover .arr{transform:translateX(4px)}
+
+  /* Terminal mock */
+  .terminal{
+    position:relative;
+    border:1px solid var(--rule-strong);
+    background:linear-gradient(180deg,#0f0d0a, #0a0907);
+    box-shadow: 0 30px 80px rgba(0,0,0,.6), inset 0 1px 0 rgba(243,237,224,.04);
+    border-radius:6px;
+    overflow:hidden;
+    transform: perspective(1600px) rotateY(-6deg) rotateX(2deg);
+    transform-origin: 100% 50%;
+  }
+  .terminal .titlebar{
+    display:flex; align-items:center; gap:8px;
+    padding:10px 14px;
+    border-bottom:1px solid var(--rule);
+    background:linear-gradient(180deg,#171410,#100e0b);
+    font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--bone-2);
+  }
+  .dots{display:flex; gap:6px; margin-right:10px}
+  .dots i{width:10px;height:10px;border-radius:50%; background:#3a352c; display:inline-block}
+  .dots i:nth-child(1){background:#ff5238}
+  .dots i:nth-child(2){background:#ffb13a}
+  .dots i:nth-child(3){background:#3ad17a}
+  .titlebar .path{opacity:.7}
+  .titlebar .right{margin-left:auto; opacity:.55}
+
+  .term-body{padding:22px; font-family:"JetBrains Mono",monospace; font-size:13.5px; line-height:1.7; color:var(--bone)}
+  .term-body .prompt{color:var(--acid)}
+  .term-body .user{color:var(--bone)}
+  .term-body .cmt{color:#7f7868}
+  .term-body .key{color:var(--amber)}
+  .term-body .ok{color:#7be38d}
+  .term-body .warn{color:#ffb13a}
+  .term-body .dim{color:#8a8270}
+  .term-body .h{color:var(--plum)}
+  .term-body .line{display:block}
+  .term-body .tool{
+    display:inline-block; padding:1px 7px; border:1px solid var(--rule-strong); border-radius:3px;
+    font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--bone-2); margin-right:6px;
+  }
+  .cursor{display:inline-block; width:9px; height:16px; vertical-align:-2px; background:var(--acid); margin-left:4px; animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  /* corner labels */
+  .corner-label{
+    position:absolute; font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:.22em; text-transform:uppercase; color:var(--bone-2); opacity:.6
+  }
+
+  /* Marquee */
+  .marquee{
+    border-top:1px solid var(--rule);
+    border-bottom:1px solid var(--rule);
+    overflow:hidden;
+    background:var(--ink);
+    margin-top:64px;
+  }
+  .marquee .track{
+    display:flex; gap:64px; padding:28px 0; will-change:transform;
+    align-items:baseline;
+    font-size: clamp(54px, 7vw, 110px);
+    line-height:1;
+    letter-spacing:-.04em;
+    font-variation-settings:"opsz" 144, "SOFT" 30, "WONK" 1;
+    white-space:nowrap;
+  }
+  .marquee .track .sep{color:var(--acid); font-family:"Instrument Serif", serif; font-style:italic}
+  .marquee .track .out{
+    -webkit-text-stroke:1px var(--bone); color:transparent;
+  }
+
+  /* -------- Section header -------- */
+  section{position:relative}
+  .section-head{
+    display:grid; grid-template-columns: 220px 1fr; gap:48px; align-items:end;
+    padding:96px 0 36px;
+    border-top:1px solid var(--rule);
+  }
+  .section-head .num{
+    font-family:"JetBrains Mono",monospace; font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--bone-2);
+  }
+  .section-head h2{
+    font-size: clamp(40px, 6vw, 88px);
+    line-height:.92;
+    letter-spacing:-.035em;
+    font-variation-settings:"opsz" 144, "SOFT" 30, "WONK" 1;
+    font-weight:380;
+    max-width:14ch;
+  }
+  .section-head h2 em{font-family:"Instrument Serif", serif; font-style:italic; color:var(--paper)}
+  .section-head .lede2{max-width:46ch; color:var(--bone-2); font-size:17px; margin-top:14px}
+
+  /* -------- Bento -------- */
+  .bento{
+    display:grid; grid-template-columns: repeat(12, 1fr);
+    grid-auto-rows: 200px;
+    gap:14px; padding:28px 0 8px;
+  }
+  .card{
+    position:relative;
+    border:1px solid var(--rule-strong);
+    background:linear-gradient(180deg, rgba(243,237,224,.025), rgba(243,237,224,0));
+    padding:22px;
+    overflow:hidden;
+    transition: border-color .25s, transform .25s, background .25s;
+  }
+  .card:hover{border-color:var(--bone); transform:translateY(-3px)}
+  .card .tag{
+    position:absolute; top:14px; right:14px;
+    font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:.2em; text-transform:uppercase;
+    color:var(--bone-2); opacity:.7;
+  }
+  .card h3{
+    font-size:30px; line-height:1; letter-spacing:-.02em;
+    font-variation-settings:"opsz" 96, "SOFT" 30, "WONK" 0;
+    font-weight:420;
+    margin-top:auto;
+  }
+  .card h3 em{font-family:"Instrument Serif", serif; font-style:italic}
+  .card p{margin-top:8px; color:var(--bone-2); font-size:14.5px; max-width:36ch}
+  .card .icon{
+    width:38px;height:38px; display:grid; place-items:center;
+    border:1px solid var(--rule-strong);
+    color:var(--acid);
+    font-family:"JetBrains Mono",monospace; font-weight:700; font-size:14px;
+  }
+  .card .body{display:flex; flex-direction:column; gap:14px; height:100%; justify-content:space-between}
+
+  .c-12{grid-column: span 12} .c-8{grid-column: span 8}
+  .c-7{grid-column: span 7} .c-6{grid-column: span 6}
+  .c-5{grid-column: span 5} .c-4{grid-column: span 4}
+  .c-3{grid-column: span 3}
+  .r-2{grid-row: span 2}
+
+  .card.feature-stream{
+    background:
+      radial-gradient(800px 400px at 10% 0%, rgba(214,255,58,.10), transparent 50%),
+      linear-gradient(180deg, #100e0b, #0a0907);
+  }
+  .stream-anim{
+    position:absolute; inset:auto -1px -1px -1px; height:60%;
+    background:
+      repeating-linear-gradient(180deg, transparent 0 22px, rgba(243,237,224,.04) 22px 23px);
+    mask-image:linear-gradient(180deg, transparent, #000 30%);
+  }
+  .stream-anim::before{
+    content:"streaming…"; position:absolute; left:50%; bottom:14px; transform:translateX(-50%);
+    font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--acid);
+  }
+  .feature-stream .lines{position:absolute; inset:60px 22px auto 22px; font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--bone-2)}
+  .feature-stream .lines span{display:block; opacity:0; transform:translateY(8px); animation: fadeUp .5s forwards}
+  .feature-stream .lines span:nth-child(1){animation-delay:.1s}
+  .feature-stream .lines span:nth-child(2){animation-delay:.4s}
+  .feature-stream .lines span:nth-child(3){animation-delay:.8s}
+  .feature-stream .lines span:nth-child(4){animation-delay:1.3s}
+  .feature-stream .lines span:nth-child(5){animation-delay:1.9s}
+  @keyframes fadeUp{to{opacity:1; transform:translateY(0)}}
+
+  /* providers grid mini */
+  .providers{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px}
+  .providers span{
+    padding:6px 10px; border:1px solid var(--rule-strong);
+    font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:.16em; text-transform:uppercase;
+  }
+  .providers span.on{background:var(--acid); color:var(--ink); border-color:var(--acid)}
+
+  /* -------- Tools palette -------- */
+  .tools-grid{
+    display:grid; grid-template-columns: repeat(6, 1fr); gap:0;
+    border-top:1px solid var(--rule); border-bottom:1px solid var(--rule);
+  }
+  .tools-grid .t{
+    border-right:1px solid var(--rule); padding:32px 22px 28px;
+    min-height:240px; position:relative; overflow:hidden;
+    transition: background .25s, color .25s;
+  }
+  .tools-grid .t:last-child{border-right:none}
+  .tools-grid .t:hover{background:var(--bone); color:var(--ink)}
+  .tools-grid .t .name{
+    font-size:36px; letter-spacing:-.02em; font-variation-settings:"opsz" 96, "SOFT" 30, "WONK" 0; font-weight:420;
+    margin-bottom:10px;
+  }
+  .tools-grid .t .desc{font-size:13.5px; color:var(--bone-2); max-width:24ch}
+  .tools-grid .t:hover .desc{color:var(--ink-2)}
+  .tools-grid .t .num{
+    position:absolute; top:14px; right:14px;
+    font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.2em; opacity:.6;
+  }
+  .tools-grid .t .glyph{
+    font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--acid);
+    margin-bottom:14px;
+  }
+  .tools-grid .t:hover .glyph{color:var(--amber)}
+
+  /* -------- Approval -------- */
+  .approval-grid{display:grid; grid-template-columns: repeat(3,1fr); gap:14px; padding:28px 0}
+  .ap{
+    position:relative;
+    border:1px solid var(--rule-strong);
+    padding:28px 24px 26px;
+    background:linear-gradient(180deg, rgba(243,237,224,.02), rgba(243,237,224,0));
+    overflow:hidden;
+  }
+  .ap .label{
+    font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--bone-2);
+  }
+  .ap h4{
+    margin-top:10px; font-size:42px; letter-spacing:-.03em; line-height:1;
+    font-variation-settings:"opsz" 144, "SOFT" 30, "WONK" 1; font-weight:420;
+  }
+  .ap h4 em{font-family:"Instrument Serif", serif; font-style:italic}
+  .ap ul{list-style:none; margin-top:18px; display:grid; gap:10px}
+  .ap li{
+    display:flex; gap:10px; align-items:flex-start;
+    font-family:"JetBrains Mono",monospace; font-size:12.5px; color:var(--bone-2);
+  }
+  .ap li i{width:14px; display:inline-grid; place-items:center; color:var(--acid); font-style:normal; font-weight:700}
+  .ap .level{
+    position:absolute; right:24px; top:24px;
+    font-family:"Instrument Serif", serif; font-style:italic; font-size:64px; line-height:1;
+    color:transparent; -webkit-text-stroke:1px var(--rule-strong);
+  }
+  .ap[data-mode="yolo"] .level{-webkit-text-stroke-color:var(--tomato)}
+  .ap[data-mode="auto"] .level{-webkit-text-stroke-color:var(--amber)}
+  .ap[data-mode="approval"] .level{-webkit-text-stroke-color:var(--acid)}
+
+  /* -------- Slash commands -------- */
+  .commands{
+    display:grid; grid-template-columns: repeat(4, 1fr); gap:0;
+    border-top:1px solid var(--rule);
+  }
+  .cmd{
+    border-right:1px solid var(--rule); border-bottom:1px solid var(--rule);
+    padding:22px 22px 22px;
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+    transition:background .2s;
+  }
+  .cmd:hover{background:rgba(214,255,58,.06)}
+  .cmd .k{
+    font-family:"JetBrains Mono",monospace; font-size:14px; color:var(--bone); font-weight:600;
+  }
+  .cmd .k b{color:var(--acid); font-weight:600}
+  .cmd .d{font-size:13px; color:var(--bone-2); font-family:"JetBrains Mono",monospace; opacity:.85}
+  .commands .cmd:nth-child(4n){border-right:none}
+
+  /* -------- Workflow / steps -------- */
+  .flow{
+    padding:48px 0 16px;
+    display:grid; grid-template-columns: repeat(5,1fr); gap:14px; align-items:stretch;
+  }
+  .step{
+    border:1px solid var(--rule-strong); padding:20px 18px; position:relative; overflow:hidden;
+    background:linear-gradient(180deg, rgba(243,237,224,.02), rgba(243,237,224,0));
+  }
+  .step .n{font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.22em; color:var(--acid)}
+  .step h5{
+    margin-top:8px; font-size:22px; letter-spacing:-.02em;
+    font-variation-settings:"opsz" 96, "SOFT" 30, "WONK" 0; font-weight:440;
+  }
+  .step p{font-size:13px; color:var(--bone-2); margin-top:8px; font-family:"JetBrains Mono",monospace}
+  .step .arrow{position:absolute; right:-18px; top:50%; transform:translateY(-50%); color:var(--rule-strong); font-family:"JetBrains Mono",monospace}
+
+  /* -------- Install / Quote -------- */
+  .install{
+    margin:96px 0 0; border-top:1px solid var(--rule); border-bottom:1px solid var(--rule);
+    padding:96px 0; position:relative; overflow:hidden;
+    background:
+      radial-gradient(800px 380px at 50% 0%, rgba(214,255,58,.07), transparent 60%);
+  }
+  .install .inner{display:grid; grid-template-columns: 1.1fr .9fr; gap:48px; align-items:center}
+  .install h3{
+    font-size: clamp(46px, 7vw, 110px); line-height:.9; letter-spacing:-.04em;
+    font-variation-settings:"opsz" 144, "SOFT" 30, "WONK" 1; font-weight:380;
+  }
+  .install h3 em{font-family:"Instrument Serif", serif; font-style:italic; color:var(--acid)}
+  .install p{color:var(--bone-2); margin-top:18px; max-width:46ch; font-size:17px}
+  .copybox{
+    border:1px solid var(--rule-strong);
+    background:#0a0907;
+    padding:22px 24px;
+    font-family:"JetBrains Mono",monospace; font-size:18px;
+    display:flex; align-items:center; justify-content:space-between; gap:18px;
+  }
+  .copybox .ps{color:var(--acid)}
+  .copybox button{
+    font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    border:1px solid var(--rule-strong); padding:9px 12px; transition:all .2s;
+  }
+  .copybox button:hover{background:var(--acid); color:var(--ink); border-color:var(--acid)}
+
+  /* -------- Quote -------- */
+  .quote{padding:120px 0 80px; text-align:center; position:relative}
+  .quote q{
+    quotes:none;
+    font-size: clamp(40px, 6vw, 92px);
+    line-height:1.04; letter-spacing:-.025em;
+    font-variation-settings:"opsz" 144, "SOFT" 60, "WONK" 1; font-weight:340;
+    color:var(--bone);
+    display:block; max-width:18ch; margin:0 auto;
+  }
+  .quote q em{font-family:"Instrument Serif",serif; font-style:italic; color:var(--acid)}
+  .quote .who{
+    margin-top:32px;
+    font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--bone-2);
+  }
+
+  /* -------- Footer -------- */
+  footer{
+    border-top:1px solid var(--rule);
+    padding:48px 0 32px;
+    background:var(--ink);
+  }
+  footer .grid{display:grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap:36px; align-items:start}
+  footer h6{
+    font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--bone-2); margin-bottom:14px;
+  }
+  footer ul{list-style:none; display:grid; gap:8px}
+  footer a{font-family:"JetBrains Mono",monospace; font-size:13px; opacity:.85; transition:opacity .2s}
+  footer a:hover{opacity:1; color:var(--acid)}
+  .footer-mark{
+    font-size: clamp(80px, 16vw, 220px);
+    line-height:.85; letter-spacing:-.05em;
+    font-variation-settings:"opsz" 144, "SOFT" 30, "WONK" 1; font-weight:380;
+    margin-top:48px;
+    color:transparent; -webkit-text-stroke:1px var(--rule-strong);
+  }
+  .colophon{
+    display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap;
+    border-top:1px solid var(--rule); margin-top:36px; padding-top:18px;
+    font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--bone-2);
+  }
+
+  /* utility reveals */
+  .reveal{opacity:0; transform:translateY(28px)}
+
+  /* -------- Responsive -------- */
+  @media (max-width: 980px){
+    .hero .grid{grid-template-columns:1fr}
+    .terminal{transform:none; margin-top:24px}
+    .section-head{grid-template-columns:1fr}
+    .bento{grid-auto-rows: 220px}
+    .c-8,.c-7,.c-6,.c-5,.c-4,.c-3{grid-column: span 12}
+    .tools-grid{grid-template-columns:repeat(2,1fr)}
+    .tools-grid .t{border-bottom:1px solid var(--rule)}
+    .tools-grid .t:nth-child(2n){border-right:none}
+    .approval-grid{grid-template-columns:1fr}
+    .commands{grid-template-columns:repeat(2,1fr)}
+    .commands .cmd:nth-child(4n){border-right:1px solid var(--rule)}
+    .commands .cmd:nth-child(2n){border-right:none}
+    .install .inner{grid-template-columns:1fr}
+    .flow{grid-template-columns:repeat(2,1fr)}
+    footer .grid{grid-template-columns:1fr 1fr}
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP TICKER -->
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-track">
+    <div class="row">
+      <span><span class="pip">●</span> v0.4.2 — STREAMING TOOL CALLS</span>
+      <span>OPENAI · ANTHROPIC · OPENAI-CHAT</span>
+      <span>BUILT ON BUN</span>
+      <span>BUBBLEWRAP-SANDBOXED BASH</span>
+      <span>OPEN SOURCE / MIT</span>
+      <span>TUI POWERED BY OPENTUI + SOLIDJS</span>
+      <span><span class="pip">●</span> NOW IN PUBLIC BETA</span>
+      <span>RUNS LOCALLY · YOUR KEYS · YOUR CONTROL</span>
+    </div>
+    <div class="row" aria-hidden="true">
+      <span><span class="pip">●</span> v0.4.2 — STREAMING TOOL CALLS</span>
+      <span>OPENAI · ANTHROPIC · OPENAI-CHAT</span>
+      <span>BUILT ON BUN</span>
+      <span>BUBBLEWRAP-SANDBOXED BASH</span>
+      <span>OPEN SOURCE / MIT</span>
+      <span>TUI POWERED BY OPENTUI + SOLIDJS</span>
+      <span><span class="pip">●</span> NOW IN PUBLIC BETA</span>
+      <span>RUNS LOCALLY · YOUR KEYS · YOUR CONTROL</span>
+    </div>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav class="bar">
+  <div class="inner">
+    <div class="brand">
+      <span class="mark">R/</span>
+      <span class="word">RECODE</span>
+      <span class="mono" style="opacity:.5;font-size:11px;letter-spacing:.18em">// AGENT.CLI</span>
+    </div>
+    <div class="navlinks">
+      <a href="#features">Features</a>
+      <a href="#tools">Tools</a>
+      <a href="#approval">Safety</a>
+      <a href="#commands">Commands</a>
+      <a href="#install">Install</a>
+    </div>
+    <div class="nav-cta">
+      <a class="pill" href="#">Docs</a>
+      <a class="pill solid" href="#install">$ get recode →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap">
+    <div class="grid">
+      <div>
+        <div class="eyebrow"><span class="dot"></span> A coding agent for the terminal — chapter 01</div>
+        <h1 class="title">
+          <span class="row"><span class="word">A&nbsp;</span><span class="word"><em>quiet</em></span></span>
+          <span class="row"><span class="word">agent&nbsp;</span><span class="word">that&nbsp;</span><span class="word">writes</span></span>
+          <span class="row"><span class="word"><span class="strike">software</span>&nbsp;</span><span class="word"><span class="accent">code.</span></span></span>
+        </h1>
+        <p class="lede">
+          <b>Recode</b> is a local-first coding agent that lives inside your terminal. Iterative tool-loop runtime, streaming responses, sandboxed shell, and a TUI that doesn't pretend to be a browser tab. Bring your own key — OpenAI, Anthropic, or anything OpenAI-compatible.
+        </p>
+        <div class="hero-meta mono">
+          <span>Local-first</span>
+          <span>Streaming</span>
+          <span>Approval-gated</span>
+          <span>BYO model</span>
+        </div>
+        <div class="cta-row">
+          <a class="btn" href="#install">$ install recode <span class="arr">→</span></a>
+          <a class="btn ghost" href="#features">read the spec <span class="arr">→</span></a>
+          <span class="mono" style="opacity:.55;font-size:11px;letter-spacing:.18em">⌘K to summon</span>
+        </div>
+      </div>
+
+      <!-- Terminal mock -->
+      <div style="position:relative">
+        <div class="corner-label" style="top:-22px; right:0">FIG.01 — RECODE TUI / SESSION:034</div>
+        <div class="terminal" id="term">
+          <div class="titlebar">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span class="path">~/projects/orbital  —  recode</span>
+            <span class="right">v0.4.2 · anthropic/claude · auto-edits</span>
+          </div>
+          <div class="term-body">
+            <span class="line"><span class="cmt"># recode — session 034 · auto-edits mode</span></span>
+            <span class="line"><span class="prompt">◈</span> <span class="user">refactor the rate limiter to use a token bucket and add tests</span></span>
+            <span class="line"><span class="dim">↳ thinking…</span></span>
+            <span class="line"><span class="tool">Glob</span><span class="key">"src/**/*rate*"</span> <span class="ok">→ 2 files</span></span>
+            <span class="line"><span class="tool">Read</span><span class="key">src/middleware/rate-limit.ts</span> <span class="ok">→ 142 lines</span></span>
+            <span class="line"><span class="tool">Read</span><span class="key">src/middleware/rate-limit.test.ts</span> <span class="ok">→ 64 lines</span></span>
+            <span class="line"><span class="dim">↳ planning the bucket…</span></span>
+            <span class="line"><span class="tool">Edit</span><span class="key">src/middleware/rate-limit.ts</span> <span class="ok">→ +84 −31</span></span>
+            <span class="line"><span class="tool">Write</span><span class="key">src/middleware/token-bucket.ts</span> <span class="ok">→ created</span></span>
+            <span class="line"><span class="tool">Bash</span><span class="key">bun test rate-limit</span> <span class="warn">[approve?]</span></span>
+            <span class="line"><span class="prompt">◈</span> <span class="user">y</span></span>
+            <span class="line"><span class="ok">✓ 14 passed · 0 failed · 312 ms</span></span>
+            <span class="line"><span class="h">▍done.</span> <span class="dim">3 files touched · 1.4s · 4,320 tokens</span></span>
+            <span class="line"><span class="prompt">◈</span> <span class="user">/export html</span><span class="cursor"></span></span>
+          </div>
+        </div>
+        <div class="corner-label" style="bottom:-22px; left:0">— LIVE STREAMING / TOOL-LOOP RUNTIME</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MARQUEE -->
+<div class="marquee" aria-hidden="true">
+  <div class="track" id="marquee">
+    <span class="display">read</span><span class="sep">·</span>
+    <span class="display out">edit</span><span class="sep">·</span>
+    <span class="display">grep</span><span class="sep">·</span>
+    <span class="display out">bash</span><span class="sep">·</span>
+    <span class="display">write</span><span class="sep">·</span>
+    <span class="display out">glob</span><span class="sep">·</span>
+    <span class="display">stream</span><span class="sep">·</span>
+    <span class="display out">ship</span><span class="sep">·</span>
+    <!-- duplicate for seamless loop -->
+    <span class="display">read</span><span class="sep">·</span>
+    <span class="display out">edit</span><span class="sep">·</span>
+    <span class="display">grep</span><span class="sep">·</span>
+    <span class="display out">bash</span><span class="sep">·</span>
+    <span class="display">write</span><span class="sep">·</span>
+    <span class="display out">glob</span><span class="sep">·</span>
+    <span class="display">stream</span><span class="sep">·</span>
+    <span class="display out">ship</span><span class="sep">·</span>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="num">01 · Capabilities</div>
+      <div>
+        <h2>Built like a <em>workshop</em>, not a chatbot.</h2>
+        <p class="lede2">A small, opinionated runtime: tool-loop core, streaming transport, persistent history, and a TUI that respects your terminal. No browsers. No accounts. No telemetry by default.</p>
+      </div>
+    </div>
+
+    <div class="bento">
+      <article class="card c-7 r-2 feature-stream reveal">
+        <div class="body">
+          <div style="display:flex; gap:14px; align-items:center">
+            <div class="icon">≋</div>
+            <span class="mono" style="font-size:11px;letter-spacing:.22em;color:var(--bone-2)">STREAM-FIRST</span>
+          </div>
+          <div>
+            <h3>Tokens land while the model thinks. <em>No spinner staring.</em></h3>
+            <p>The runtime yields character-by-character, surfaces in-flight tool calls, and re-enters the loop without flushing context. You watch the agent reason in real time.</p>
+          </div>
+        </div>
+        <div class="lines">
+          <span>› streaming chunk 0042…</span>
+          <span>› tool/Read pending →</span>
+          <span>› assistant: "found it — let me patch…"</span>
+          <span>› tool/Edit pending →</span>
+          <span>› ✓ patched · 84 lines · streaming continues</span>
+        </div>
+        <div class="stream-anim"></div>
+        <span class="tag">/01</span>
+      </article>
+
+      <article class="card c-5 reveal">
+        <div class="body">
+          <div style="display:flex; gap:14px; align-items:center">
+            <div class="icon">⌘</div>
+            <span class="mono" style="font-size:11px;letter-spacing:.22em;color:var(--bone-2)">BYO MODEL</span>
+          </div>
+          <div>
+            <h3>Pick your <em>brain</em>.</h3>
+            <p>OpenAI Responses, OpenAI Chat, Anthropic Messages — and any OpenAI-compatible base URL. Switch mid-thread with <span class="mono" style="color:var(--acid)">/models</span>.</p>
+            <div class="providers">
+              <span class="on">OPENAI</span><span class="on">ANTHROPIC</span><span>OPENAI-CHAT</span><span>OLLAMA</span><span>GROQ</span><span>OPENROUTER</span>
+            </div>
+          </div>
+        </div>
+        <span class="tag">/02</span>
+      </article>
+
+      <article class="card c-5 reveal">
+        <div class="body">
+          <div style="display:flex; gap:14px; align-items:center">
+            <div class="icon">⏚</div>
+            <span class="mono" style="font-size:11px;letter-spacing:.22em;color:var(--bone-2)">LOCAL FIRST</span>
+          </div>
+          <div>
+            <h3>Your code never leaves the room <em>twice</em>.</h3>
+            <p>Config in <span class="mono">~/.recode/config.json</span>. History on disk. Provider keys live in your env, not in a SaaS dashboard you forgot you signed up for.</p>
+          </div>
+        </div>
+        <span class="tag">/03</span>
+      </article>
+
+      <article class="card c-7 reveal" style="background:linear-gradient(180deg, rgba(255,122,26,.06), rgba(0,0,0,0))">
+        <div class="body">
+          <div style="display:flex; gap:14px; align-items:center">
+            <div class="icon" style="color:var(--amber)">▣</div>
+            <span class="mono" style="font-size:11px;letter-spacing:.22em;color:var(--bone-2)">TUI · OPENTUI + SOLIDJS</span>
+          </div>
+          <div>
+            <h3>A composer that <em>docks</em>, a transcript that <em>scrolls</em>.</h3>
+            <p>Prompt floats up while there's room, then snaps to the bottom like a real composer. Slash mode rewrites the marker. Selectors come up as overlays, not full-screen takeovers.</p>
+          </div>
+        </div>
+        <span class="tag">/04</span>
+      </article>
+
+      <article class="card c-4 reveal">
+        <div class="body">
+          <div style="display:flex; gap:14px; align-items:center">
+            <div class="icon">⎈</div>
+            <span class="mono" style="font-size:11px;letter-spacing:.22em;color:var(--bone-2)">SANDBOX</span>
+          </div>
+          <div>
+            <h3>Bash, but <em>fenced</em>.</h3>
+            <p>App-layer validation + bubblewrap when available. Approval-gated by default.</p>
+          </div>
+        </div>
+        <span class="tag">/05</span>
+      </article>
+
+      <article class="card c-4 reveal">
+        <div class="body">
+          <div style="display:flex; gap:14px; align-items:center">
+            <div class="icon">⌬</div>
+            <span class="mono" style="font-size:11px;letter-spacing:.22em;color:var(--bone-2)">HISTORY</span>
+          </div>
+          <div>
+            <h3>Every thread, on disk.</h3>
+            <p>Resume, branch, or export to HTML. <span class="mono" style="color:var(--acid)">/history</span> is a real archive.</p>
+          </div>
+        </div>
+        <span class="tag">/06</span>
+      </article>
+
+      <article class="card c-4 reveal">
+        <div class="body">
+          <div style="display:flex; gap:14px; align-items:center">
+            <div class="icon">◐</div>
+            <span class="mono" style="font-size:11px;letter-spacing:.22em;color:var(--bone-2)">THEMING</span>
+          </div>
+          <div>
+            <h3>Make it <em>yours</em>.</h3>
+            <p>Themes, tool markers, layout & minimal modes — all persistent. The spinner matches the room.</p>
+          </div>
+        </div>
+        <span class="tag">/07</span>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- TOOLS -->
+<section id="tools">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="num">02 · Tool palette</div>
+      <div>
+        <h2>Six verbs. <em>Every</em> shape of work.</h2>
+        <p class="lede2">A small, sharp toolset the model composes into anything: refactors, migrations, audits, scripts, ship-it patches.</p>
+      </div>
+    </div>
+  </div>
+  <div class="wrap" style="padding:0 28px">
+    <div class="tools-grid reveal">
+      <div class="t">
+        <div class="num">/01</div>
+        <div class="glyph">›_ shell</div>
+        <div class="name">Bash</div>
+        <div class="desc">Run anything. Sandboxed by bubblewrap when available, gated by approvals.</div>
+      </div>
+      <div class="t">
+        <div class="num">/02</div>
+        <div class="glyph">⟿ ingest</div>
+        <div class="name">Read</div>
+        <div class="desc">Slurp files into context with safe path resolution. Always allowed.</div>
+      </div>
+      <div class="t">
+        <div class="num">/03</div>
+        <div class="glyph">✎ create</div>
+        <div class="name">Write</div>
+        <div class="desc">Make new files cleanly. Atomic, reviewed, never overwriting silently.</div>
+      </div>
+      <div class="t">
+        <div class="num">/04</div>
+        <div class="glyph">⊟ patch</div>
+        <div class="name">Edit</div>
+        <div class="desc">Surgical, line-aware diffs. The model proposes, you approve.</div>
+      </div>
+      <div class="t">
+        <div class="num">/05</div>
+        <div class="glyph">✺ find</div>
+        <div class="name">Glob</div>
+        <div class="desc">Pattern-match the tree. Fast filesystem reconnaissance.</div>
+      </div>
+      <div class="t">
+        <div class="num">/06</div>
+        <div class="glyph">⌕ search</div>
+        <div class="name">Grep</div>
+        <div class="desc">Ripgrep-shaped semantic search across your codebase.</div>
+      </div>
+    </div>
+
+    <!-- WORKFLOW -->
+    <div class="flow">
+      <div class="step reveal">
+        <div class="n">STEP 01</div>
+        <h5>Prompt</h5>
+        <p>You type the intent. No ceremony.</p>
+        <div class="arrow">›</div>
+      </div>
+      <div class="step reveal">
+        <div class="n">STEP 02</div>
+        <h5>Stream</h5>
+        <p>Model reasoning lands token-by-token.</p>
+        <div class="arrow">›</div>
+      </div>
+      <div class="step reveal">
+        <div class="n">STEP 03</div>
+        <h5>Tool calls</h5>
+        <p>Read · Edit · Bash · Glob · Grep.</p>
+        <div class="arrow">›</div>
+      </div>
+      <div class="step reveal">
+        <div class="n">STEP 04</div>
+        <h5>Approve</h5>
+        <p>Inline gates for shell & edits.</p>
+        <div class="arrow">›</div>
+      </div>
+      <div class="step reveal">
+        <div class="n">STEP 05</div>
+        <h5>Loop</h5>
+        <p>Until the model is done. Then quiet.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- APPROVAL -->
+<section id="approval">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="num">03 · Three speeds of trust</div>
+      <div>
+        <h2>You decide <em>how loud</em> the agent gets.</h2>
+        <p class="lede2">Three approval modes, persistent allowlists, and a clear visual contract for every action that touches your machine.</p>
+      </div>
+    </div>
+
+    <div class="approval-grid">
+      <div class="ap reveal" data-mode="approval">
+        <span class="level">01</span>
+        <div class="label">/approval-mode · approval</div>
+        <h4><em>Cautious.</em></h4>
+        <ul>
+          <li><i>✓</i> Reads run instantly</li>
+          <li><i>!</i> Edits require a yes</li>
+          <li><i>!</i> Bash requires a yes</li>
+          <li><i>○</i> Best for unfamiliar repos</li>
+        </ul>
+      </div>
+      <div class="ap reveal" data-mode="auto">
+        <span class="level">02</span>
+        <div class="label">/approval-mode · auto-edits</div>
+        <h4>Flow <em>state</em>.</h4>
+        <ul>
+          <li><i>✓</i> Reads run instantly</li>
+          <li><i>✓</i> Edits run instantly</li>
+          <li><i>!</i> Bash still asks</li>
+          <li><i>○</i> Best for daily driver work</li>
+        </ul>
+      </div>
+      <div class="ap reveal" data-mode="yolo">
+        <span class="level">03</span>
+        <div class="label">/approval-mode · yolo</div>
+        <h4><em>YOLO.</em></h4>
+        <ul>
+          <li><i>✓</i> Reads run instantly</li>
+          <li><i>✓</i> Edits run instantly</li>
+          <li><i>✓</i> Bash runs instantly</li>
+          <li><i>○</i> Best for sandboxes & throwaway VMs</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMMANDS -->
+<section id="commands">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="num">04 · Slash commands</div>
+      <div>
+        <h2>A keyboard <em>shortcut</em> for everything.</h2>
+        <p class="lede2">Tap <span class="mono">/</span> in the TUI and the agent yields the floor. Pickers, status, themes, exports — without leaving the buffer.</p>
+      </div>
+    </div>
+    <div class="commands">
+      <div class="cmd"><span class="k">/<b>help</b></span><span class="d">summon the menu</span></div>
+      <div class="cmd"><span class="k">/<b>clear</b></span><span class="d">wipe transcript</span></div>
+      <div class="cmd"><span class="k">/<b>status</b></span><span class="d">runtime overview</span></div>
+      <div class="cmd"><span class="k">/<b>config</b></span><span class="d">edit ~/.recode</span></div>
+      <div class="cmd"><span class="k">/<b>models</b></span><span class="d">switch the brain</span></div>
+      <div class="cmd"><span class="k">/<b>provider</b></span><span class="d">openai / anthropic / …</span></div>
+      <div class="cmd"><span class="k">/<b>theme</b></span><span class="d">re-skin the room</span></div>
+      <div class="cmd"><span class="k">/<b>customize</b></span><span class="d">marker, layout, minimal</span></div>
+      <div class="cmd"><span class="k">/<b>approval-mode</b></span><span class="d">trust dial</span></div>
+      <div class="cmd"><span class="k">/<b>export</b></span><span class="d">save thread → html</span></div>
+      <div class="cmd"><span class="k">/<b>history</b></span><span class="d">resume any thread</span></div>
+      <div class="cmd"><span class="k">/<b>new</b></span><span class="d">fresh conversation</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section id="install" class="install">
+  <div class="wrap">
+    <div class="inner">
+      <div class="reveal">
+        <div class="eyebrow"><span class="dot"></span> Two lines. One agent.</div>
+        <h3>Install. <em>Then forget</em> the GUI.</h3>
+        <p>Single binary, no daemon, no telemetry. Bring an OpenAI or Anthropic key and you're shipping in under a minute.</p>
+      </div>
+      <div class="reveal" style="display:grid;gap:12px">
+        <div class="copybox" id="copy1">
+          <span><span class="ps">$</span>&nbsp; curl -fsSL recode.sh/install | bash</span>
+          <button data-copy="curl -fsSL recode.sh/install | bash">Copy</button>
+        </div>
+        <div class="copybox" id="copy2">
+          <span><span class="ps">$</span>&nbsp; recode setup &nbsp;&nbsp; <span style="color:var(--bone-2);opacity:.7">// pick provider, paste key</span></span>
+          <button data-copy="recode setup">Copy</button>
+        </div>
+        <div class="copybox" id="copy3">
+          <span><span class="ps">$</span>&nbsp; recode &nbsp;&nbsp; <span style="color:var(--bone-2);opacity:.7">// or:  recode "summarize the README"</span></span>
+          <button data-copy="recode">Copy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- QUOTE -->
+<section class="quote">
+  <div class="wrap">
+    <q>It feels like pair-programming with someone <em>who already read the codebase</em> — and types faster than you do.</q>
+    <div class="who">— a beta user, somewhere in a tmux pane</div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="grid">
+      <div>
+        <div class="brand">
+          <span class="mark">R/</span>
+          <span class="word">RECODE</span>
+        </div>
+        <p class="mono" style="margin-top:14px;font-size:12px;color:var(--bone-2);max-width:36ch;letter-spacing:.04em">A local-first coding agent for the terminal. MIT-licensed. Built on Bun, OpenTUI & SolidJS.</p>
+      </div>
+      <div>
+        <h6>Product</h6>
+        <ul>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#tools">Tools</a></li>
+          <li><a href="#approval">Approval modes</a></li>
+          <li><a href="#commands">Commands</a></li>
+        </ul>
+      </div>
+      <div>
+        <h6>Resources</h6>
+        <ul>
+          <li><a href="#">Documentation</a></li>
+          <li><a href="#">Provider setup</a></li>
+          <li><a href="#">Release notes</a></li>
+          <li><a href="#">Telemetry policy</a></li>
+        </ul>
+      </div>
+      <div>
+        <h6>Open source</h6>
+        <ul>
+          <li><a href="#">GitHub</a></li>
+          <li><a href="#">Changelog</a></li>
+          <li><a href="#">Issues</a></li>
+          <li><a href="#">License (MIT)</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-mark display">RECODE/</div>
+    <div class="colophon">
+      <span>© 2026 RECODE — released into the world quietly</span>
+      <span>set in Fraunces · Instrument Serif · JetBrains Mono</span>
+      <span>made for terminals, not tabs</span>
+    </div>
+  </div>
+</footer>
+
+<!-- GSAP + Motion -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/motion@10.18.0/dist/motion.js"></script>
+
+<script>
+  gsap.registerPlugin(ScrollTrigger);
+
+  /* ---- Hero word reveal ---- */
+  gsap.set(".title .word", { yPercent: 110 });
+  gsap.to(".title .word", {
+    yPercent: 0, duration: 1.05, stagger: 0.08, ease: "expo.out", delay: 0.15
+  });
+  gsap.from(".eyebrow", { opacity: 0, y: 10, duration: .8, delay: .2, ease: "power3.out" });
+  gsap.from(".lede", { opacity: 0, y: 14, duration: .9, delay: 1.0, ease: "power3.out" });
+  gsap.from(".hero-meta span", { opacity: 0, y: 10, duration: .6, delay: 1.2, stagger: 0.06, ease: "power2.out" });
+  gsap.from(".cta-row > *", { opacity: 0, y: 10, duration: .6, delay: 1.35, stagger: 0.08, ease: "power2.out" });
+
+  /* ---- Terminal in ---- */
+  gsap.from("#term", {
+    opacity: 0, y: 30, scale: .98, duration: 1.1, delay: .3, ease: "power3.out"
+  });
+  gsap.from("#term .term-body .line", {
+    opacity: 0, x: 8, duration: .35, stagger: 0.18, delay: 1.0, ease: "power2.out"
+  });
+
+  /* ---- Marquee subtle parallax ---- */
+  gsap.to("#marquee", {
+    xPercent: -50, ease: "none", duration: 38, repeat: -1
+  });
+
+  /* ---- Reveals ---- */
+  gsap.utils.toArray(".reveal").forEach((el) => {
+    gsap.to(el, {
+      opacity: 1, y: 0, duration: .9, ease: "expo.out",
+      scrollTrigger: { trigger: el, start: "top 88%", once: true }
+    });
+  });
+
+  /* ---- Section header parallax ---- */
+  gsap.utils.toArray(".section-head h2").forEach((el) => {
+    gsap.from(el, {
+      yPercent: 14, opacity: 0, duration: 1.1, ease: "expo.out",
+      scrollTrigger: { trigger: el, start: "top 90%", once: true }
+    });
+  });
+
+  /* ---- Tools hover with Motion ---- */
+  const M = window.Motion || window.motion;
+  if (M && M.animate) {
+    document.querySelectorAll(".tools-grid .t").forEach((t) => {
+      t.addEventListener("mouseenter", () => {
+        M.animate(t.querySelector(".name"), { transform: ["translateX(0)", "translateX(6px)"] }, { duration: .4, easing: [.2,.8,.2,1] });
+      });
+      t.addEventListener("mouseleave", () => {
+        M.animate(t.querySelector(".name"), { transform: ["translateX(6px)", "translateX(0)"] }, { duration: .4, easing: [.2,.8,.2,1] });
+      });
+    });
+
+    /* Bento card lift */
+    document.querySelectorAll(".card").forEach((c) => {
+      c.addEventListener("mouseenter", () => {
+        M.animate(c, { transform: ["translateY(0)", "translateY(-4px)"] }, { duration: .35, easing: [.2,.8,.2,1] });
+      });
+      c.addEventListener("mouseleave", () => {
+        M.animate(c, { transform: ["translateY(-4px)", "translateY(0)"] }, { duration: .35, easing: [.2,.8,.2,1] });
+      });
+    });
+
+    /* Approval cards subtle scale on view */
+    document.querySelectorAll(".ap").forEach((ap, i) => {
+      ScrollTrigger.create({
+        trigger: ap, start: "top 85%", once: true,
+        onEnter: () => M.animate(ap.querySelector(".level"),
+          { transform: ["translateY(20px) rotate(-4deg)", "translateY(0) rotate(0)"], opacity: [0, 1] },
+          { duration: .9, easing: [.2,.8,.2,1] }
+        )
+      });
+    });
+  }
+
+  /* ---- Terminal slight tilt on scroll ---- */
+  gsap.to("#term", {
+    rotateY: 0, rotateX: 0, scale: 1,
+    scrollTrigger: { trigger: "#term", start: "top 70%", end: "bottom 40%", scrub: true }
+  });
+
+  /* ---- Copy buttons ---- */
+  document.querySelectorAll("[data-copy]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy);
+        const t = btn.textContent;
+        btn.textContent = "Copied ✓";
+        btn.style.background = "var(--acid)";
+        btn.style.color = "var(--ink)";
+        btn.style.borderColor = "var(--acid)";
+        setTimeout(() => {
+          btn.textContent = t;
+          btn.style.background = "";
+          btn.style.color = "";
+          btn.style.borderColor = "";
+        }, 1300);
+      } catch (e) {}
+    });
+  });
+
+  /* ---- Cursor parallax on hero terminal ---- */
+  const term = document.getElementById("term");
+  if (term) {
+    document.querySelector(".hero").addEventListener("mousemove", (e) => {
+      const r = term.getBoundingClientRect();
+      const cx = (e.clientX - (r.left + r.width / 2)) / r.width;
+      const cy = (e.clientY - (r.top + r.height / 2)) / r.height;
+      gsap.to(term, { rotateY: -6 + cx * 4, rotateX: 2 - cy * 4, duration: .6, ease: "power2.out" });
+    });
+  }
+</script>
+</body>
+</html>

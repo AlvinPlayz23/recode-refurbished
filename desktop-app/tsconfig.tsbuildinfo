@@ -1,0 +1,1 @@
+{"root":["./electrobun.config.ts","./scripts/build-web.ts","./scripts/dev.ts","./scripts/patch-windows-dpi-manifest.ts","./scripts/smoke-acp-sessions.ts","./scripts/smoke-child-spawn.ts","./src/bun/acp-json-rpc-client.ts","./src/bun/child-process.ts","./src/bun/desktop-session-manager.ts","./src/bun/index.ts"],"version":"6.0.3"}

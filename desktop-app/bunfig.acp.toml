@@ -1,0 +1,3 @@
+# Intentionally empty.
+# Desktop dev mode uses this when launching `recode acp-server --stdio`
+# so the root TUI preload in `bunfig.toml` does not run for headless ACP.

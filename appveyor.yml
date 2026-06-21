@@ -1,0 +1,37 @@
+image: Visual Studio 2022
+
+branches:
+  only:
+    - /^v.*/
+
+install:
+  - npm install -g bun
+  - bun install
+
+build_script:
+  # 1. First, go into the main desktop app folder and install dependencies so Electrobun is fully available
+  - cmd: cd desktop-app && bun install
+
+  # 2. Next, go into the web folder, install its dependencies, and build the frontend assets
+  - cmd: cd web && bun install && bun run build
+
+  # 3. Finally, drop back to the desktop app folder and execute the final electrobun production build
+  - cmd: cd .. && bunx electrobun build --env=stable
+
+artifacts:
+  # Electrobun explicitly logs "creating artifacts folder... moving artifacts..."
+  # It moves the final zip to the root-level 'artifacts' folder.
+  - path: 'artifacts\*.zip'
+    name: windows-release
+
+deploy:
+  provider: GitHub
+  auth_token:
+    secure: En2ShShIjO9uMCDnGLU005CVlzpSzctpSeXIPHdsSCaNIQ5LjARsIU+Z8p0tyNiK
+  artifact: windows-release
+  draft: false
+  prerelease: false
+  on:
+    appveyor_repo_tag: true
+
+test: "off"

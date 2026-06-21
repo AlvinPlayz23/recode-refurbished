@@ -1,0 +1,31 @@
+{
+  "name": "recode",
+  "version": "0.1.0",
+  "description": "Recode is a local coding agent built with TypeScript, Bun, and a terminal-first TUI.",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "recode": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "check": "tsc --noEmit",
+    "build": "bun run scripts/build.ts --single",
+    "build:all": "bun run scripts/build.ts",
+    "test": "bun test ./src/acp ./src/agent ./src/ai ./src/cli ./src/config ./src/history ./src/models ./src/providers ./src/runtime ./src/session ./src/tools ./src/tui"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
+    "@earendil-works/pi-tui": "0.79.8",
+    "chalk": "^5.6.2",
+    "openai": "6.26.0",
+    "partial-json": "^0.1.7",
+    "turndown": "^7.2.0"
+  },
+  "devDependencies": {
+    "@babel/helper-plugin-utils": "^7.28.6",
+    "@types/bun": "latest",
+    "@types/turndown": "^5.0.5",
+    "typescript": "^5.9.3"
+  }
+}
