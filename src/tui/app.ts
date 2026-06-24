@@ -60,6 +60,7 @@ import {
   CancellableLoader,
   CombinedAutocompleteProvider,
   Editor,
+  fuzzyFilter,
   Markdown,
   SelectList,
   Text,
@@ -411,7 +412,8 @@ export class TuiApp {
         this.appendEntry(createEntry("error", "error", "No models were returned by enabled providers."));
         return;
       }
-      const selected = await this.selectOverlay("Select model", items, items[0]!.value);
+      const selected = await this.searchableOverlay("Select model", items);
+      if (selected === undefined) return;
       const [providerId, modelId] = selected.split("\t");
       if (providerId === undefined || modelId === undefined) return;
       this.selectProviderModel(providerId, modelId);
@@ -532,6 +534,29 @@ export class TuiApp {
         handle.hide();
         this.tui.setFocus(this.editor);
         resolve(fallback);
+      };
+      handle.focus();
+    });
+  }
+
+  /**
+   * Show a searchable overlay with a list of selectable items.
+   * Returns the selected item's value, or undefined if cancelled.
+   */
+  private searchableOverlay(title: string, items: readonly SelectItem[]): Promise<string | undefined> {
+    return new Promise((resolve) => {
+      const searchable = new SearchableListPopup([...items], 12, this.createSelectTheme());
+      const popup = new BorderedPopup(title, searchable, this.theme);
+      const handle = this.tui.showOverlay(popup, { anchor: "center", width: "80%", maxHeight: "60%", margin: 2 });
+      searchable.onSelect = (item) => {
+        handle.hide();
+        this.tui.setFocus(this.editor);
+        resolve(item.value);
+      };
+      searchable.onCancel = () => {
+        handle.hide();
+        this.tui.setFocus(this.editor);
+        resolve(undefined);
       };
       handle.focus();
     });
@@ -732,6 +757,172 @@ class BorderedPopup implements Component {
   private renderContentLine(line: string, innerWidth: number): string {
     const padding = " ".repeat(Math.max(0, innerWidth - visibleWidth(line)));
     return `${chalk.hex(this.theme.divider)("│")} ${line}${padding} ${chalk.hex(this.theme.divider)("│")}`;
+  }
+}
+
+/**
+ * A selectable list with type-to-search filtering, designed for use inside a BorderedPopup.
+ */
+class SearchableListPopup implements Component {
+  private allItems: SelectItem[];
+  private filteredItems: SelectItem[];
+  private selectedIndex = 0;
+  private query = "";
+  private readonly maxVisible: number;
+  private readonly theme: SelectListTheme;
+
+  onSelect?: (item: SelectItem) => void;
+  onCancel?: () => void;
+
+  constructor(items: SelectItem[], maxVisible: number, theme: SelectListTheme) {
+    this.allItems = items;
+    this.filteredItems = [...items];
+    this.maxVisible = maxVisible;
+    this.theme = theme;
+  }
+
+  handleInput(data: string): void {
+    // Arrow up
+    if (matchesKey(data, "up")) {
+      if (this.filteredItems.length === 0) return;
+      this.selectedIndex =
+        this.selectedIndex <= 0
+          ? this.filteredItems.length - 1
+          : this.selectedIndex - 1;
+      return;
+    }
+
+    // Arrow down
+    if (matchesKey(data, "down")) {
+      if (this.filteredItems.length === 0) return;
+      this.selectedIndex =
+        this.selectedIndex >= this.filteredItems.length - 1
+          ? 0
+          : this.selectedIndex + 1;
+      return;
+    }
+
+    // Page up / page down
+    if (matchesKey(data, "pageUp")) {
+      if (this.filteredItems.length === 0) return;
+      this.selectedIndex = Math.max(0, this.selectedIndex - this.maxVisible);
+      return;
+    }
+    if (matchesKey(data, "pageDown")) {
+      if (this.filteredItems.length === 0) return;
+      this.selectedIndex = Math.min(
+        this.filteredItems.length - 1,
+        this.selectedIndex + this.maxVisible
+      );
+      return;
+    }
+
+    // Confirm selection
+    if (matchesKey(data, "enter")) {
+      const item = this.filteredItems[this.selectedIndex];
+      if (item && this.onSelect) {
+        this.onSelect(item);
+      }
+      return;
+    }
+
+    // Cancel
+    if (matchesKey(data, "escape")) {
+      this.onCancel?.();
+      return;
+    }
+
+    // Backspace — remove last query character
+    if (matchesKey(data, "backspace")) {
+      if (this.query.length > 0) {
+        this.query = this.query.slice(0, -1);
+        this.applyFilter();
+      }
+      return;
+    }
+
+    // Printable ASCII character — append to search query
+    if (data.length === 1 && data >= " " && data <= "~") {
+      this.query += data;
+      this.applyFilter();
+      return;
+    }
+  }
+
+  private applyFilter(): void {
+    if (this.query === "") {
+      this.filteredItems = [...this.allItems];
+    } else {
+      this.filteredItems = fuzzyFilter(
+        this.allItems,
+        this.query,
+        (item) => `${item.label} ${item.value} ${item.description ?? ""}`
+      );
+    }
+    this.selectedIndex = 0;
+  }
+
+  invalidate(): void {
+    // Nothing to invalidate
+  }
+
+  render(width: number): string[] {
+    const lines: string[] = [];
+
+    // Search bar with block cursor
+    const searchText = `Search: ${this.query}\u2588`;
+    lines.push(searchText);
+
+    // Divider
+    lines.push(this.theme.description("\u2500".repeat(Math.max(2, width))));
+
+    // Empty state
+    if (this.filteredItems.length === 0) {
+      lines.push(this.theme.noMatch("  No matching models"));
+      return lines;
+    }
+
+    // Calculate visible window around the selected index
+    const half = Math.floor(this.maxVisible / 2);
+    const startIndex = Math.min(
+      Math.max(0, this.selectedIndex - half),
+      Math.max(0, this.filteredItems.length - this.maxVisible)
+    );
+    const endIndex = Math.min(startIndex + this.maxVisible, this.filteredItems.length);
+
+    // Render visible items
+    for (let i = startIndex; i < endIndex; i++) {
+      const item = this.filteredItems[i]!;
+      const isSelected = i === this.selectedIndex;
+      const prefix = isSelected ? "\u2192 " : "  ";
+      const effectiveWidth = width - 2;
+
+      const displayText = `${prefix}${item.label}`;
+      let lineText = displayText;
+
+      // Append description when space permits
+      const description = item.description ?? "";
+      const remaining = width - visibleWidth(displayText) - 4;
+      if (description && remaining > 12) {
+        const desc = truncateToWidth(` ${description}`, remaining, "");
+        lineText += this.theme.description(desc);
+      }
+
+      const finalLine = truncateToWidth(lineText, effectiveWidth, "");
+      if (isSelected) {
+        lines.push(this.theme.selectedText(finalLine));
+      } else {
+        lines.push(finalLine);
+      }
+    }
+
+    // Scroll indicator
+    if (this.filteredItems.length > this.maxVisible) {
+      const scrollText = `  (${this.selectedIndex + 1}/${this.filteredItems.length})`;
+      lines.push(this.theme.scrollInfo(truncateToWidth(scrollText, width - 2, "")));
+    }
+
+    return lines;
   }
 }
 
