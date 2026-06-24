@@ -5,6 +5,7 @@ node_modules/
 .sisyphus/
 dist/
 .recode/
+.opencode/
 refs/
 pi-tui
 fn/
