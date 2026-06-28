@@ -1,7 +1,7 @@
 /**
  * Interactive CLI setup for providers and models.
  *
- * Interactive terminals get a themed TUI wizard (see `setup-tui.ts`).
+ * Interactive terminals get a themed TUI wizard (see `../tui/setup-wizard.ts`).
  * Non-TTY environments fall back to the readline-based prompt loop below so
  * scripted setups still work.
  *
@@ -54,6 +54,20 @@ interface SelectOption<TValue> {
  */
 export async function runSetupWizard(workspaceRoot: string): Promise<void> {
   const configPath = resolveConfigPath(workspaceRoot, Bun.env.RECODE_CONFIG_PATH?.trim());
+
+  // Hand off to the rich TUI wizard when running on an interactive terminal.
+  // Piped / scripted setups fall through to the readline-based fallback below.
+  if (stdin.isTTY && typeof stdin.setRawMode === "function") {
+    const { SetupWizardApp } = await import("../tui/setup-wizard.ts");
+    const config = loadRecodeConfigFile(configPath);
+    const app = new SetupWizardApp(configPath, config);
+    const saved = await app.run();
+    if (saved) {
+      console.log(`Saved provider config to ${configPath}`);
+    }
+    return;
+  }
+
   const existingConfig = loadRecodeConfigFile(configPath);
   const rl = createInterface({ input: stdin, output: stdout });
   let nextConfig = existingConfig;
@@ -603,7 +617,7 @@ async function promptSelect<TValue>(
       console.log(title);
       console.log("");
       options.forEach((option, index) => {
-        const prefix = index === currentIndex ? "›" : " ";
+        const prefix = index === currentIndex ? ">" : " ";
         const suffix = option.hint === undefined ? "" : `  ${option.hint}`;
         console.log(`${prefix} ${option.label}${suffix}`);
       });
